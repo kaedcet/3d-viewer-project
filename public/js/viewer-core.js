@@ -9,17 +9,16 @@ import { RoomEnvironment } from 'https://esm.sh/three@0.160.0/examples/jsm/envir
 export function createViewer(container) {
   // 1. Scene, Camera, Renderer Setup
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x151a22);
+  scene.background = new THREE.Color(0x1a1b20);
 
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
   camera.position.set(0, 5, 10);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
   container.appendChild(renderer.domElement);
 
   // 2. CSS2D Renderer สำหรับทำป้ายพิกัด / Annotation
@@ -37,14 +36,7 @@ export function createViewer(container) {
 
   // 4. Environment Lighting (แสงสมจริงแบบ Minimal)
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer), 0.04).texture;
-
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-  scene.add(ambientLight);
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-  dirLight.position.set(5, 10, 7);
-  scene.add(dirLight);
+  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
   // 5. Loaders Setup (GLTF + Draco + Meshopt)
   const gltfLoader = new GLTFLoader();
