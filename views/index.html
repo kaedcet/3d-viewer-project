@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Interactive Viewer with Ruby Red Annotations</title>
+  
+  <!-- Import Map สำหรับจัดการพาร์ท Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f8f9fa;
+      --border: #e9ecef;
+      --text: #212529;
+      --muted: #6c757d;
+      --primary: #000000;
+      --accent: #f44336;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    header { height: 64px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); z-index: 10; }
+    .brand { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; }
+    .main-layout { display: flex; flex: 1; height: calc(100vh - 64px); position: relative; }
+    #viewer { flex: 1; height: 100%; background: #ffffff; position: relative; }
+    aside { width: 380px; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; z-index: 5; }
+    .sidebar-header { padding: 20px 24px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    
+    /* สไตล์การ์ด Sidebar */
+    .card { background: #ffffff; border: 1px solid var(--border); border-radius: 14px; padding: 18px; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(244, 67, 54, 0.1); }
+    .card-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .card-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+
+    /* ==========================================================
+       สไตล์ปุ่มหมุดหัวกลมสีแดงพรีเมียม (Ruby Red 3D Pin) บนโมเดล
+       ========================================================== */
+    .luxury-pin {
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: radial-gradient(circle at 30% 30%, #ff5252, #d32f2f 70%, #990000 100%);
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      box-shadow: 0 6px 16px rgba(211, 47, 47, 0.4), inset 0 3px 6px rgba(255, 255, 255, 0.4), inset 0 -3px 6px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: auto;
+    }
+
+    /* วงแหวนเรืองแสงสีแดงรอบหมุด */
+    .luxury-pin::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 82, 82, 0.6);
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* จุดแสงสะท้อนด้านในให้ดูเป็นทรงกลม 3D */
+    .luxury-pin::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      width: 8px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 50px;
+      transform: rotate(-30deg);
+    }
+
+    .luxury-pin span {
+      display: none;
+    }
+
+    /* ป้ายข้อความชื่อจุดที่จะแสดงเมื่อเอาเมาส์มา Hover */
+    .luxury-pin .pin-tooltip {
+      position: absolute;
+      left: 42px;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-10px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .luxury-pin:hover {
+      transform: scale(1.2) translateY(-3px);
+      background: radial-gradient(circle at 30% 30%, #ff8a80, #f44336 70%, #c62828 100%);
+      box-shadow: 0 10px 25px rgba(244, 67, 54, 0.6), inset 0 3px 6px rgba(255, 255, 255, 0.6);
+    }
+
+    .luxury-pin:hover .pin-tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      50% { transform: scale(1.4); opacity: 0; }
+      100% { transform: scale(0.95); opacity: 0; }
+    }
+
+    /* Loading Overlay */
+    #loading { position: absolute; inset: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.3s ease; }
+    #loading.done { opacity: 0; pointer-events: none; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-track { width: 200px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar { width: 0%; height: 100%; background: var(--primary); transition: width 0.1s linear; }
+    #loading-text { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">🔴 3D Ruby Annotations Viewer</div>
+  </header>
+
+  <div class="main-layout">
+    <div id="viewer">
+      <div id="loading">
+        <div class="spinner"></div>
+        <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+        <div id="loading-text">กำลังโหลดโมเดล 3 มิติ...</div>
+      </div>
+    </div>
+    <aside>
+      <div class="sidebar-header">📍 รายการจุดสำคัญ (Annotations)</div>
+      <div id="annotations-list" class="sidebar-content">
+        <div class="card">
+          <div class="card-title">ℹ️ กำลังโหลดข้อมูล...</div>
+          <div class="card-desc">โปรดรอสักครู่</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module">
+    import { createViewer } from './js/viewer-core.js';
+
+    const v = createViewer(document.getElementById('viewer'));
+
+    // ฟังก์ชันย้ายกล้องไปโฟกัสเป้าหมาย
+    function focusCamera(targetPos, cameraPos) {
+      if (targetPos) v.controls.target.set(...targetPos);
+      if (cameraPos) v.camera.position.set(...cameraPos);
+      v.controls.update();
+    }
+
+    async function init() {
+      try {
+        // 1. ขอ Session จาก Backend เพื่อโหลดโมเดล 3 มิติ
+        const res = await fetch('/api/session', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ modelId: 'single' }) 
+        });
+        if (!res.ok) throw new Error('ไม่สามารถเชื่อมต่อเซสชันได้');
+        const { token, key } = await res.json();
+
+        // 2. โหลดโมเดล 3 มิติ
+        await v.load(token, key, p => {
+          document.getElementById('progress-bar').style.width = `${p * 100}%`;
+          document.getElementById('loading-text').textContent = `กำลังโหลดโมเดล... ${Math.round(p * 100)}%`;
+        });
+
+        document.getElementById('loading').classList.add('done');
+
+        // 3. โหลดข้อมูล Annotations จากไฟล์ JSON
+        const listContainer = document.getElementById('annotations-list');
+        listContainer.innerHTML = '';
+
+        try {
+          const annoRes = await fetch('/annotations.json');
+          if (annoRes.ok) {
+            const myAnnotations = await annoRes.json();
+            
+            if (myAnnotations.length === 0) {
+              listContainer.innerHTML = '<div class="card"><div class="card-title">ไม่พบข้อมูลหมุด</div><div class="card-desc">ยังไม่มีการเพิ่ม Annotations ในไฟล์ JSON</div></div>';
+            } else {
+              myAnnotations.forEach(item => {
+                // เพิ่มป้ายพิกัดลงในโมเดล 3D
+                v.addAnnotation(item.title, item.desc, item.pos, () => {
+                  focusCamera(item.target, item.cameraPos);
+                });
+
+                // สร้างการ์ดแสดงผลที่ Sidebar ด้านขวา
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                  <div class="card-title">🔴 ${item.title}</div>
+                  <div class="card-desc">${item.desc}</div>
+                `;
+
+                // คลิกการ์ดแล้วซูมกล้องไปยังตำแหน่งเป้าหมาย
+                card.addEventListener('click', () => {
+                  focusCamera(item.target, item.cameraPos);
+                });
+
+                listContainer.appendChild(card);
+              });
+            }
+          } else {
+            throw new Error('ไม่พบไฟล์ annotations.json');
+          }
+        } catch (annoErr) {
+          console.warn('⚠️ ยังไม่ได้สร้างไฟล์ annotations.json:', annoErr.message);
+          listContainer.innerHTML = `
+            <div class="card">
+              <div class="card-title">💡 คำแนะนำ</div>
+              <div class="card-desc">สร้างไฟล์ชื่อ <strong>annotations.json</strong> ในโฟลเดอร์ public เพื่อแสดงจุดพิกัดหัวกลมสีแดง</div>
+            </div>
+          `;
+        }
+
+      } catch (err) {
+        document.getElementById('loading-text').textContent = '⚠ เกิดข้อผิดพลาดในการโหลดระบบ';
+        console.error(err);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
