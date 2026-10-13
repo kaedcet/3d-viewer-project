@@ -15,7 +15,8 @@ if (rawKey.length !== 64) {
 const MASTER_KEY = Buffer.from(rawKey, 'hex');
 
 // กำหนดชื่อโมเดลให้ตรงกับชื่อไฟล์ .enc ในโฟลเดอร์ protected_models (ไม่ต้องใส่ .enc)
-const MODEL_ID = '85060a456e97'; // <--- เปลี่ยนตรงนี้ให้ตรงกับชื่อไฟล์ .enc ของคุณ
+// Set MODEL_ID in .env to the filename before .enc (for example: MODEL_ID=85060a456e97).
+const MODEL_ID = process.env.MODEL_ID || '20cbbc990f5e';
 
 const app = express();
 
@@ -45,7 +46,7 @@ app.post('/api/session', (req, res) => {
   // บันทึก Session ชั่วคราว (อายุการใช้งาน 30 วินาที)
   global.activeSession = { token, key, expires: Date.now() + 30000 };
   
-  res.json({ token, key: key.toString('base64') });
+  res.json({ token, key: key.toString('base64'), modelId: MODEL_ID });
 });
 
 // API สำหรับสตรีมและเข้ารหัสส่งให้ Client ไปถอดรหัสต่อหน้างาน

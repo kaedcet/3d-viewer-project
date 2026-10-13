@@ -1,15 +1,15 @@
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
-import { MeshoptDecoder } from 'https://unpkg.com/three@0.160.0/examples/jsm/libs/meshopt_decoder.module.js';
-import { CSS2DRenderer, CSS2DObject } from 'https://unpkg.com/three@0.160.0/examples/jsm/renderers/CSS2DRenderer.js';
-import { RoomEnvironment } from 'https://unpkg.com/three@0.160.0/examples/jsm/environments/RoomEnvironment.js';
+import * as THREE from 'https://esm.sh/three@0.160.0';
+import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'https://esm.sh/three@0.160.0/examples/jsm/libs/meshopt_decoder.module.js';
+import { CSS2DRenderer, CSS2DObject } from 'https://esm.sh/three@0.160.0/examples/jsm/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'https://esm.sh/three@0.160.0/examples/jsm/environments/RoomEnvironment.js';
 
 export function createViewer(container) {
   // 1. Scene, Camera, Renderer Setup
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
+  scene.background = new THREE.Color(0x151a22);
 
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
   camera.position.set(0, 5, 10);
@@ -94,7 +94,10 @@ export function createViewer(container) {
 
     const label = new CSS2DObject(div);
     label.position.set(...positionArray);
-    scene.add(label);
+    // secure-glb-viewer stores annotation positions in the model's local space.
+    // Make each label a child of the model so model centering is applied to it too.
+    if (!currentModel) throw new Error('ต้องโหลดโมเดลก่อนเพิ่ม Annotation');
+    currentModel.add(label);
 
     annotations.push({ title, desc, position: positionArray, element: div, label });
     return label;
@@ -103,6 +106,7 @@ export function createViewer(container) {
   // ฟังก์ชันเคลียร์ป้ายทั้งหมด
   function clearAnnotations() {
     annotations.forEach(item => {
+      item.label?.removeFromParent();
       if (item.label && item.label.element && item.label.element.parentNode) {
         item.label.element.parentNode.removeChild(item.label.element);
       }
